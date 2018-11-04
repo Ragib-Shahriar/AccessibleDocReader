@@ -1,0 +1,8 @@
+this repository contains the code of BanglaDocReaderByInnovationGarage
+
+The app is focus on blind persons. The app has some facility which helps greatly those with vision problem
+the facilities are
+:High zooming mode
+:Reading automatically
+:Reading paragraph,sentences,words,letters
+:And of course supports bangla

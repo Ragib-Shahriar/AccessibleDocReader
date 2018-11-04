@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">AccessibleDocReader</string>
+    <string name="title_activity_about_page">AboutPage</string>
+    <string name="title_activity_user_manual">UserManual</string>
+    <string name="textview">TextView</string>
+    <string name="title_activity_go_to_page">GoToPageActivity</string>
+
+    <string-array name="planets_array">
+        <item>DEFAULT</item>
+        <item>PARAGRAPH</item>
+        <item>WORD</item>
+        <item>LETTER</item>
+    </string-array>
+</resources>

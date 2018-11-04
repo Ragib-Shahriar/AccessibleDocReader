@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <!--<item-->
+        <!--android:id="@+id/action_item_two"-->
+        <!--android:icon="@drawable/innovation_garage_limited_logo_gradient"-->
+        <!--android:title="ig"-->
+        <!--app:showAsAction="always" />-->
+    <item
+        android:title="ABOUT"
+        android:id="@+id/about"
+        android:orderInCategory="1"
+        app:showAsAction="never"/>
+    <item
+        android:title="USER MANUAL"
+        android:id="@+id/usermanual"
+        android:orderInCategory="2"
+        app:showAsAction="never"/>
+    <item
+        android:title="GO TO PAGE"
+        android:id="@+id/gotopage"
+        android:orderInCategory="2"
+        app:showAsAction="never"/>
+    <item
+        android:title="DEVELOPER PAGE"
+        android:id="@+id/developerPage"
+        android:orderInCategory="2"
+        app:showAsAction="never"/>
+    <item
+        android:id="@+id/settings"
+        android:orderInCategory="3"
+        android:title="SETTINGS" />
+</menu>

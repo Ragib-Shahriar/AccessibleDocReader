@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="newage.rs.filereader">
+
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/icon2"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity
+            android:name="com.innovationgarage.accessibledocreader.MainActivity"
+            android:roundIcon="@drawable/ic_launcher_background">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.innovationgarage.accessibledocreader.AboutPage"
+            android:label="@string/title_activity_about_page"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name="com.innovationgarage.accessibledocreader.UserManual"
+            android:label="@string/title_activity_user_manual"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name="com.innovationgarage.accessibledocreader.GoToPageActivity"
+            android:label="@string/title_activity_go_to_page"
+            android:theme="@style/Theme.Transparent" />
+        <activity android:name="com.innovationgarage.accessibledocreader.DeveloperPage" />
+        <activity android:name="com.innovationgarage.accessibledocreader.SettingActivity"></activity>
+    </application>
+
+</manifest>
