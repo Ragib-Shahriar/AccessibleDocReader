@@ -1,5 +1,7 @@
 package com.innovationgarage.accessibledocreader;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.DefaultItemAnimator;
@@ -52,23 +54,52 @@ public class SettingActivity extends AppCompatActivity {
         showLangButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                final LinearLayout.LayoutParams layoutParams;
-                if(showLangButton.getText()=="Show Language List") {
-                    layoutParams = new LinearLayout.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.MATCH_PARENT);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            recyclerView.setLayoutParams(layoutParams);
-                            showLangButton.setText("Hide Language List");
-                            recyclerView.requestLayout();
-                        }
-                    });
-                }
-                else{
-                    layoutParams = new LinearLayout.LayoutParams(0,0);
-                    recyclerView.setLayoutParams(layoutParams);
-                    showLangButton.setText("Show Language List");
-                }
+
+                // setup the alert builder
+                AlertDialog.Builder builder = new AlertDialog.Builder(SettingActivity.this,  R.style.MyDialogTheme);
+                builder.setTitle("Choose an animal");
+
+// add a radio button list
+                String[] animals = {"horse", "cow", "camel", "sheep", "goat"};
+                int checkedItem = 1; // cow
+                builder.setSingleChoiceItems(animals, checkedItem, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        // user checked an item
+                    }
+                });
+
+// add OK and Cancel buttons
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        // user clicked OK
+                    }
+                });
+                builder.setNegativeButton("Cancel", null);
+
+// create and show the alert dialog
+                AlertDialog dialog = builder.create();
+                dialog.show();
+
+
+//                final LinearLayout.LayoutParams layoutParams;
+////                if(showLangButton.getText()=="Show Language List") {
+////                    layoutParams = new LinearLayout.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.MATCH_PARENT);
+////                    runOnUiThread(new Runnable() {
+////                        @Override
+////                        public void run() {
+////                            recyclerView.setLayoutParams(layoutParams);
+////                            showLangButton.setText("Hide Language List");
+////                            recyclerView.requestLayout();
+////                        }
+////                    });
+////                }
+////                else{
+////                    layoutParams = new LinearLayout.LayoutParams(0,0);
+////                    recyclerView.setLayoutParams(layoutParams);
+////                    showLangButton.setText("Show Language List");
+////                }
             }
         });
 

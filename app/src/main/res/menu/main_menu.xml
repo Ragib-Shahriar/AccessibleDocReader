@@ -27,7 +27,7 @@
         android:orderInCategory="2"
         app:showAsAction="never"/>
     <item
-        android:id="@+id/settings"
+        android:id="@+id/changelang"
         android:orderInCategory="3"
-        android:title="SETTINGS" />
+        android:title="ChangeLanguage" />
 </menu>

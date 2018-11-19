@@ -6,19 +6,26 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Handler;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import android.speech.tts.Voice;
 import android.support.annotation.ColorInt;
+import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
 import android.text.InputType;
 import android.text.Layout;
 import android.text.Spannable;
@@ -41,14 +48,19 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.innovationgarage.accessibledocreader.View.LangItem;
 import com.nbsp.materialfilepicker.MaterialFilePicker;
 import com.nbsp.materialfilepicker.ui.FilePickerActivity;
 import com.pes.androidmaterialcolorpickerdialog.ColorPicker;
 import com.pes.androidmaterialcolorpickerdialog.ColorPickerCallback;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 import newage.rs.filereader.R;
@@ -79,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
     static int sentenceIndex=0;//sentence location in a page
     static int letterIndex=0;
 
-    static String TAG="------------------";
+    static String TAG="AccessibleDocReader";
     static String pageInfo="";//Docx files paper size will be in it.
 
     public static List<List> pageLst=new ArrayList<List>();//contains pages
@@ -111,6 +123,10 @@ public class MainActivity extends AppCompatActivity {
 
     static int color;
 
+    TelephonyManager tm;
+    CallStateListener callStateListener;
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -145,42 +161,50 @@ public class MainActivity extends AppCompatActivity {
 
         //for setting the textView everytime the activity is created
         if(hasStarted){
+            Log.i(TAG, "hasStarted");
            if(!pageLst.isEmpty()) {
                String st=myClass.paraViewPage(pageLst.get(pageIndex)).toString();
                textView.setText(st);
            }
         }
         else{
+            Log.i(TAG, "initializing tts");
             //Initializing TTS
             tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
                 if (status != TextToSpeech.ERROR) {
-                    tts.setLanguage(new Locale("bn_BD"));
+                    tts.setLanguage(new Locale(speakLanguage));
 
-
-
-//                       Set<Locale> ln=tts.getAvailableLanguages();
-//                       //et.setText(ln.toString());
-//
-//                       boolean banglaFound=false;
-//                       Locale lc=null;
-//                       for (Locale s:ln) {
-//                           if (s.toString().contains("bn_BD")) {
-//                               lc=s;
-//                               tts.setLanguage(lc);
-//                               banglaFound=true;
-//                           }
-//                       }
-//
-//                       if(!banglaFound){
-//                           tts.speak("BANGLA LANGUAGE NOT FOUND",TextToSpeech.QUEUE_FLUSH,null);
-//                       }
                     }
+                }
+            }, "com.google.android.tts");
+
+            Log.i(TAG, "defengine="+tts.getDefaultEngine());
+            if(tts.getDefaultEngine().contains("auto")) {
+               //auto tts detected.
+            }
+
+            tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override
+                public void onStart(String s) {
+                    Log.i(TAG, "utterencestarted");
+                }
+
+                @Override
+                public void onDone(String s) {
+                    Log.i(TAG, "utterencecompleted");
+                }
+
+                @Override
+                public void onError(String s) {
+                    Log.i(TAG, "utterenceerror");
                 }
             });
 
         }
+        callStateListener=new CallStateListener();
+
         waiter=new Waiter();
         waiter.execute("hi there");
 
@@ -224,6 +248,18 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
+
+
+        SharedPreferences pref = getApplicationContext().getSharedPreferences("LangPref", MODE_PRIVATE);
+        String data=pref.getString("speakLanguage", null);
+        Log.i(TAG, "prefdata="+data);
+        if(data==null) {
+            speakLanguage="bn_BD";
+        }else {
+            Log.i(TAG, "data found="+data);
+            speakLanguage=data;
+        }
+        Log.i(TAG, "speakLanguage set="+speakLanguage);
 
     }
 
@@ -585,6 +621,9 @@ public class MainActivity extends AppCompatActivity {
 
     public void stop(View view){
         ttSpeak("Reading Stopped");
+        stopReadingNow();
+    }
+    void stopReadingNow() {
         //After reading a sentence readMode increment the sentenceIndex.
         //So here after stopping we are decrementing the sentenceIndex.So readMode will start from the same line again.
         if(pageLst.size()>0) {
@@ -1128,7 +1167,31 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    /*
+    duration=7457 length=94 ratio=79.32979
+    duration=1320 length=1 ratio=1320.0
+    duration=1520 length=18 ratio=84.44444
+    duration=4386 length=61 ratio=71.90164
+    duration=3081 length=40 ratio=77.025
+    duration=2362 length=28 ratio=84.35714
+    duration=1097 length=12 ratio=91.416664
+    duration=6283 length=79 ratio=79.53165
+    duration=5133 length=59 ratio=87.0
+    duration=6170 length=79 ratio=78.101265
+    duration=3908 length=54 ratio=72.37037
+     */
     public class Waiter extends AsyncTask<String,Void,String>{
+        long st, et;
+        int length, nw;
+        public Waiter() {
+            length=1;
+            nw=1;
+        }
+        public Waiter(int length, int nw) {
+            this.length=length;
+            this.nw=nw;
+            st=System.currentTimeMillis();
+        }
         @Override
         protected String doInBackground(String... s) {
             while(tts.isSpeaking()){
@@ -1150,7 +1213,10 @@ public class MainActivity extends AppCompatActivity {
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             }
             //Toast.makeText(con,s,Toast.LENGTH_SHORT).show();
-            Log.d(TAG,"Speak completed");
+            Log.d(TAG,"Waiter job: Speak completed");
+            et=System.currentTimeMillis();
+            long d=et-st;
+            Log.i(TAG, "duration="+d+" length="+length+" ratio="+ ((float)d/ (float)length)+" nw="+nw+" rat: "+( (float)d/(float)nw));
         }
     }
 
@@ -1162,15 +1228,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
     //will speak the given string
     public void ttSpeak(String speak){
+        Log.i(TAG, "");
+        Log.i(TAG, "ttSpeak="+speak);
+
         tts.setLanguage(new Locale(speakLanguage));
         tts.speak(speak, TextToSpeech.QUEUE_FLUSH,null);
         getHeight();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         waiter.cancel(true);
-        waiter=new Waiter();
+        String[] inf=speak.split(" ");  //word size.
+        waiter=new Waiter(speak.length(), inf.length);
         waiter.execute(KEEP_SCREEN_ON);
+        Log.i(TAG, "ttSpeak_end");
     }
 
     double prevTop=0;
@@ -1248,7 +1320,7 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id=item.getItemId();
 
-        if(id==R.id.about || id==R.id.usermanual || id==R.id.gotopage || id==R.id.developerPage || id==R.id.settings){
+        if(id==R.id.about || id==R.id.usermanual || id==R.id.gotopage || id==R.id.developerPage || id==R.id.changelang){
            tts.stop();
            if(readMode && sentenceIndex>0)
                  sentenceIndex--;//decrementing for readMode
@@ -1268,14 +1340,70 @@ public class MainActivity extends AppCompatActivity {
                     i=new Intent(getApplicationContext(),DeveloperPage.class);
                     startActivity(i);
                     break;
-                case R.id.settings:
-                    i=new Intent(getApplicationContext(),SettingActivity.class);
-                    startActivity(i);
+                case R.id.changelang:
+//                    i=new Intent(getApplicationContext(),SettingActivity.class);
+//                    startActivity(i);
+                    doSelectLang();
                     break;
             }
 
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    String selectedLang="";
+    private void doSelectLang() {
+        initHashMap();
+        final String[] langs=new String[hashMap.size()];
+        int i=0;
+        int checkedItem = 1; // cow
+
+        for(Map.Entry<String,String> hashMap1:hashMap.entrySet()){
+            String k=hashMap1.getKey();
+            String val=hashMap1.getValue();
+//            Log.i(TAG, "k="+k+" val="+val);
+            langs[i]=k;
+
+            if(val.equals(speakLanguage)) {
+                checkedItem=i;
+            }
+            ++i;
+        }
+
+        // setup the alert builder
+        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this,  R.style.MyDialogTheme);
+        builder.setTitle("Choose Language");
+
+
+        builder.setSingleChoiceItems(langs, checkedItem, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                // user checked an item
+                selectedLang=langs[which];
+                Log.i(TAG, "Selected Lang="+selectedLang);
+            }
+        });
+
+// add OK and Cancel buttons
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+               speakLanguage=hashMap.get(selectedLang);
+               Log.i(TAG, "language changed to: "+speakLanguage);
+
+                SharedPreferences pref = getApplicationContext().getSharedPreferences("LangPref", MODE_PRIVATE);
+                SharedPreferences.Editor editor = pref.edit();
+                editor.putString("speakLanguage", speakLanguage);    //saving data
+                editor.commit();
+
+
+            }
+        });
+        builder.setNegativeButton("Cancel", null);
+
+// create and show the alert dialog
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
     private void doGoToPage() {
@@ -1328,11 +1456,170 @@ public class MainActivity extends AppCompatActivity {
         return spannable;
     }
 
+
+    /**
+     * Listener to detect incoming calls.
+     */
+    private class CallStateListener extends PhoneStateListener {
+        @Override
+        public void onCallStateChanged(int state, String incomingNumber) {
+            switch (state) {
+                case TelephonyManager.CALL_STATE_RINGING:
+                    // called when someone is ringing to this phone
+                    Log.i(TAG, "-------------incoming call detected-------------");
+                    stopReadingNow();
+                    break;
+            }
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        Log.i(TAG, "onPause----------------");
+
+        stopReadingNow();
+        super.onPause();
+
+        tm.listen(callStateListener, PhoneStateListener.LISTEN_NONE);
+
+    }
+
+    TreeMap<String,String> hashMap=new TreeMap<>();
+    private void initHashMap() {
+        hashMap=new TreeMap<>();
+        hashMap.put("Afrikaans (South Africa)","af_ZA");
+        hashMap.put("Amharic (Ethiopia)","am_ET");
+        hashMap.put("Armenian (Armenia)","hy_AM");
+        hashMap.put("Azerbaijani (Azerbaijan)","az_AZ");
+        hashMap.put("Indonesian (Indonesia)","id_ID");
+        hashMap.put("Malay (Malaysia)","ms_MY");
+        hashMap.put("Bengali (Bangladesh)","bn_BD");
+        hashMap.put("Bengali (India)","bn_IN");
+        hashMap.put("Catalan (Spain)","ca_ES");
+        hashMap.put("Czech (Czech Republic)","cs_CZ");
+        hashMap.put("Danish (Denmark)","da_DK");
+        hashMap.put("German (Germany)","de_DE");
+        hashMap.put("English (Australia)","en_AU");
+        hashMap.put("English (Canada)","en_CA");
+        hashMap.put("English (Ghana)","en_GH");
+        hashMap.put("English (United Kingdom)","en_GB");
+        hashMap.put("English (India)","en_IN");
+        hashMap.put("English (Ireland)","en_IE");
+        hashMap.put("English (Kenya)","en_KE");
+        hashMap.put("English (New Zealand)","en_NZ");
+        hashMap.put("English (Nigeria)","en_NG");
+        hashMap.put("English (Philippines)","en_PH");
+        hashMap.put("English (South Africa)","en_ZA");
+        hashMap.put("English (Tanzania)","en_TZ");
+        hashMap.put("English (United States)","en_US");
+        hashMap.put("Spanish (Argentina)","es_AR");
+        hashMap.put("Spanish (Bolivia)","es_BO");
+        hashMap.put("Spanish (Chile)","es_CL");
+        hashMap.put("Spanish (Colombia)","es_CO");
+        hashMap.put("Spanish (Costa Rica)","es_CR");
+        hashMap.put("Spanish (Ecuador)","es_EC");
+        hashMap.put("Spanish (El Salvador)","es_SV");
+        hashMap.put("Spanish (Spain)","es_ES");
+        hashMap.put("Spanish (United States)","es_US");
+        hashMap.put("Spanish (Guatemala)","es_GT");
+        hashMap.put("Spanish (Honduras)","es_HN");
+        hashMap.put("Spanish (Mexico)","es_MX");
+        hashMap.put("Spanish (Nicaragua)","es_NI");
+        hashMap.put("Spanish (Panama)","es_PA");
+        hashMap.put("Spanish (Paraguay)","es_PY");
+        hashMap.put("Spanish (Peru)","es_PE");
+        hashMap.put("Spanish (Puerto Rico)","es_PR");
+        hashMap.put("Spanish (Dominican Republic)","es_DO");
+        hashMap.put("Spanish (Uruguay)","es_UY");
+        hashMap.put("Spanish (Venezuela)","es_VE");
+        hashMap.put("Basque (Spain)","eu_ES");
+        hashMap.put("Filipino (Philippines)","fil_PH");
+        hashMap.put("French (Canada)","fr_CA");
+        hashMap.put("French (France)","fr_FR");
+        hashMap.put("Galician (Spain)","gl_ES");
+        hashMap.put("Georgian (Georgia)","ka_GE");
+        hashMap.put("Gujarati (India)","gu_IN");
+        hashMap.put("Croatian (Croatia)","hr_HR");
+        hashMap.put("Zulu (South Africa)","zu_ZA");
+        hashMap.put("Icelandic (Iceland)","is_IS");
+        hashMap.put("Italian (Italy)","it_IT");
+        hashMap.put("Javanese (Indonesia)","jv_ID");
+        hashMap.put("Kannada (India)","kn_IN");
+        hashMap.put("Khmer (Cambodia)","km_KH");
+        hashMap.put("Lao (Laos)","lo_LA");
+        hashMap.put("Latvian (Latvia)","lv_LV");
+        hashMap.put("Lithuanian (Lithuania)","lt_LT");
+        hashMap.put("Hungarian (Hungary)","hu_HU");
+        hashMap.put("Malayalam (India)","ml_IN");
+        hashMap.put("Marathi (India)","mr_IN");
+        hashMap.put("Dutch (Netherlands)","nl_NL");
+        hashMap.put("Nepali (Nepal)","ne_NP");
+        hashMap.put("Norwegian Bokmål (Norway)","nb_NO");
+        hashMap.put("Polish (Poland)","pl_PL");
+        hashMap.put("Portuguese (Brazil)","pt_BR");
+        hashMap.put("Portuguese (Portugal)","pt_PT");
+        hashMap.put("Romanian (Romania)","ro_RO");
+        hashMap.put("Sinhala (Sri Lanka)","si_LK");
+        hashMap.put("Slovak (Slovakia)","sk_SK");
+        hashMap.put("Slovenian (Slovenia)","sl_SI");
+        hashMap.put("Sundanese (Indonesia)","su_ID");
+        hashMap.put("Swahili (Tanzania)","sw_TZ");
+        hashMap.put("Swahili (Kenya)","sw_KE");
+        hashMap.put("Finnish (Finland)","fi_FI");
+        hashMap.put("Swedish (Sweden)","sv_SE");
+        hashMap.put("Tamil (India)","ta_IN");
+        hashMap.put("Tamil (Singapore)","ta_SG");
+        hashMap.put("Tamil (Sri Lanka)","ta_LK");
+        hashMap.put("Tamil (Malaysia)","ta_MY");
+        hashMap.put("Telugu (India)","te_IN");
+        hashMap.put("Vietnamese (Vietnam)","vi_VN");
+        hashMap.put("Turkish (Turkey)","tr_TR");
+        hashMap.put("Urdu (Pakistan)","ur_PK");
+        hashMap.put("Urdu (India)","ur_IN");
+        hashMap.put("Greek (Greece)","el_GR");
+        hashMap.put("Bulgarian (Bulgaria)","bg_BG");
+        hashMap.put("Russian (Russia)","ru_RU");
+        hashMap.put("Serbian (Serbia)","sr_RS");
+        hashMap.put("Ukrainian (Ukraine)","uk_UA");
+        hashMap.put("Hebrew (Israel)","he_IL");
+        hashMap.put("Arabic (Israel)","ar_IL");
+        hashMap.put("Arabic (Jordan)","ar_JO");
+        hashMap.put("Arabic (United Arab Emirates)","ar_AE");
+        hashMap.put("Arabic (Bahrain)","ar_BH");
+        hashMap.put("Arabic (Algeria)","ar_DZ");
+        hashMap.put("Arabic (Saudi Arabia)","ar_SA");
+        hashMap.put("Arabic (Iraq)","ar_IQ");
+        hashMap.put("Arabic (Kuwait)","ar_KW");
+        hashMap.put("Arabic (Morocco)","ar_MA");
+        hashMap.put("Arabic (Tunisia)","ar_TN");
+        hashMap.put("Arabic (Oman)","ar_OM");
+        hashMap.put("Arabic (State of Palestine)","ar_PS");
+        hashMap.put("Arabic (Qatar)","ar_QA");
+        hashMap.put("Arabic (Lebanon)","ar_LB");
+        hashMap.put("Arabic (Egypt)","ar_EG");
+        hashMap.put("Persian (Iran)","fa_IR");
+        hashMap.put("Hindi (India)","hi_IN");
+        hashMap.put("Thai (Thailand)","th_TH");
+        hashMap.put("Korean (South Korea)","ko_KR");
+        hashMap.put("Chinese, Mandarin (Traditional, Taiwan)","cmn_Hant_TW");
+        hashMap.put("Chinese, Cantonese (Traditional, Hong Kong)","yue_Hant_HK");
+        hashMap.put("Japanese (Japan)","ja_JP");
+        hashMap.put("Chinese, Mandarin (Simplified, Hong Kong)","cmn_Hans_HK");
+        hashMap.put("Chinese, Mandarin (Simplified, China)","cmn_Hans_CN");
+    }
+
+
     @Override
     protected void onResume() {
+        Log.i(TAG, "--");
+        Log.i(TAG, "onResumed");
         super.onResume();
         Toast.makeText(getApplicationContext(),"Resumed",Toast.LENGTH_SHORT);
         if(!pageLst.isEmpty())
             loadFileToTextView();
+
+
+        tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        tm.listen(callStateListener, PhoneStateListener.LISTEN_CALL_STATE);
     }
 }
